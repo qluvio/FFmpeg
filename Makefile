@@ -91,20 +91,20 @@ endef
 $(foreach D,$(FFLIBS),$(eval $(call DOSUBDIR,lib$(D))))
 
 include $(SRC_PATH)/fftools/Makefile
-include $(SRC_PATH)/doc/Makefile
-include $(SRC_PATH)/doc/examples/Makefile
+#include $(SRC_PATH)/doc/Makefile
+#include $(SRC_PATH)/doc/examples/Makefile
 
 libavcodec/utils.o libavformat/utils.o libavdevice/avdevice.o libavfilter/avfilter.o libavutil/utils.o libpostproc/postprocess.o libswresample/swresample.o libswscale/utils.o : libavutil/ffversion.h
 
 $(PROGS): %$(PROGSSUF)$(EXESUF): %$(PROGSSUF)_g$(EXESUF)
 ifeq ($(STRIPTYPE),direct)
-	$(STRIP) -o $@ $<
+	llvm-ar -x $@ $<
 else
 	$(CP) $< $@
 	$(STRIP) $@
 endif
 
-%$(PROGSSUF)_g$(EXESUF): $(FF_DEP_LIBS)
+$(PROGSSUF)_g$(EXESUF): $(FF_DEP_LIBS)
 	$(LD) $(LDFLAGS) $(LDEXEFLAGS) $(LD_O) $(OBJS-$*) $(FF_EXTRALIBS)
 
 VERSION_SH  = $(SRC_PATH)/ffbuild/version.sh

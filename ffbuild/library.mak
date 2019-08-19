@@ -19,7 +19,9 @@ $(LIBOBJS) $(LIBOBJS:.o=.s) $(LIBOBJS:.o=.i):   CPPFLAGS += -DHAVE_AV_CONFIG_H
 
 $(SUBDIR)$(LIBNAME): $(OBJS)
 	$(RM) $@
+	echo HERE $(SUBDIR:/=) FLAGS $(ARFLAGS)
 	$(AR) $(ARFLAGS) $(AR_O) $^
+	wasm-ld --no-entry --export-all -o $(patsubst %.a, %.wasm, $(AR_O)) $^
 	$(RANLIB) $@
 
 install-headers: install-lib$(NAME)-headers install-lib$(NAME)-pkgconfig
