@@ -1,4 +1,6 @@
 /*
+ * Copyright (c) 2019 Guo Yejun
+ *
  * This file is part of FFmpeg.
  *
  * FFmpeg is free software; you can redistribute it and/or
@@ -16,20 +18,21 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include "config.h"
+#ifndef AVFILTER_DNN_DNN_BACKEND_NATIVE_LAYERS_H
+#define AVFILTER_DNN_DNN_BACKEND_NATIVE_LAYERS_H
 
-#include "libavutil/aarch64/cpu.h"
-#include "libavcodec/opusdsp.h"
+#include <stdint.h>
+#include "dnn_backend_native.h"
 
-void ff_opus_postfilter_neon(float *data, int period, float *gains, int len);
-float ff_opus_deemphasis_neon(float *out, float *in, float coeff, int len);
+typedef int (*LAYER_EXEC_FUNC)(DnnOperand *operands, const int32_t *input_operand_indexes,
+                               int32_t output_operand_index, const void *parameters);
+typedef int (*LAYER_LOAD_FUNC)(Layer *layer, AVIOContext *model_file_context, int file_size);
 
-av_cold void ff_opus_dsp_init_aarch64(OpusDSP *ctx)
-{
-    int cpu_flags = av_get_cpu_flags();
+typedef struct LayerFunc {
+    LAYER_EXEC_FUNC pf_exec;
+    LAYER_LOAD_FUNC pf_load;
+}LayerFunc;
 
-    if (have_neon(cpu_flags)) {
-        ctx->postfilter = ff_opus_postfilter_neon;
-        ctx->deemphasis = ff_opus_deemphasis_neon;
-    }
-}
+extern LayerFunc layer_funcs[DLT_COUNT];
+
+#endif

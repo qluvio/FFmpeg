@@ -163,6 +163,7 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
     const int w = s->w;
     int c, y, n, p, bin;
     uint64_t acmax = 1;
+    AVFrame *clone;
 
     if (!s->out || s->out->width  != outlink->w ||
                    s->out->height != outlink->h) {
@@ -363,7 +364,33 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
             s->ypos = H;
     }
 
-    return ff_filter_frame(outlink, av_frame_clone(s->out));
+    clone = av_frame_clone(s->out);
+    if (!clone)
+        return AVERROR(ENOMEM);
+
+    return ff_filter_frame(outlink, clone);
+}
+
+static int activate(AVFilterContext *ctx)
+{
+    AVFilterLink *inlink = ctx->inputs[0];
+    AVFilterLink *outlink = ctx->outputs[0];
+    AudioHistogramContext *s = ctx->priv;
+    AVFrame *in;
+    int ret;
+
+    FF_FILTER_FORWARD_STATUS_BACK(outlink, inlink);
+
+    ret = ff_inlink_consume_samples(inlink, s->nb_samples, s->nb_samples, &in);
+    if (ret < 0)
+        return ret;
+    if (ret > 0)
+        return filter_frame(inlink, in);
+
+    FF_FILTER_FORWARD_STATUS(inlink, outlink);
+    FF_FILTER_FORWARD_WANTED(outlink, inlink);
+
+    return FFERROR_NOT_READY;
 }
 
 static int activate(AVFilterContext *ctx)

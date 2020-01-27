@@ -1,4 +1,6 @@
-/*
+ /*
+ * Copyright (c) 2019 Paul B Mahol
+ *
  * This file is part of FFmpeg.
  *
  * FFmpeg is free software; you can redistribute it and/or
@@ -16,6 +18,25 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#define TX_DOUBLE
-#include "tx_priv.h"
-#include "tx_template.c"
+#ifndef AVFILTER_ATADENOISE_H
+#define AVFILTER_ATADENOISE_H
+
+#include <stddef.h>
+#include <stdint.h>
+
+enum ATAAlgorithm {
+    PARALLEL,
+    SERIAL,
+    NB_ATAA
+};
+
+typedef struct ATADenoiseDSPContext {
+    void (*filter_row)(const uint8_t *src, uint8_t *dst,
+                       const uint8_t **srcf,
+                       int w, int mid, int size,
+                       int thra, int thrb);
+} ATADenoiseDSPContext;
+
+void ff_atadenoise_init_x86(ATADenoiseDSPContext *dsp, int depth, int algorithm);
+
+#endif /* AVFILTER_ATADENOISE_H */

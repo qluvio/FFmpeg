@@ -71,6 +71,7 @@
 #endif
 
 #define UDP_TX_BUF_SIZE 32768
+#define UDP_RX_BUF_SIZE 393216
 #define UDP_MAX_PKT_SIZE 65536
 #define UDP_HEADER_SIZE 8
 
@@ -274,7 +275,7 @@ static int udp_set_multicast_sources(URLContext *h,
         }
         return 0;
 #else
-        av_log(NULL, AV_LOG_ERROR,
+        av_log(h, AV_LOG_ERROR,
                "Setting multicast sources only supported for IPv4\n");
         return AVERROR(EINVAL);
 #endif
@@ -283,7 +284,7 @@ static int udp_set_multicast_sources(URLContext *h,
     for (i = 0; i < nb_sources; i++) {
         struct ip_mreq_source mreqs;
         if (sources[i].ss_family != AF_INET) {
-            av_log(NULL, AV_LOG_ERROR, "Source/block address %d is of incorrect protocol family\n", i + 1);
+            av_log(h, AV_LOG_ERROR, "Source/block address %d is of incorrect protocol family\n", i + 1);
             return AVERROR(EINVAL);
         }
 
@@ -298,9 +299,9 @@ static int udp_set_multicast_sources(URLContext *h,
                        include ? IP_ADD_SOURCE_MEMBERSHIP : IP_BLOCK_SOURCE,
                        (const void *)&mreqs, sizeof(mreqs)) < 0) {
             if (include)
-                ff_log_net_error(NULL, AV_LOG_ERROR, "setsockopt(IP_ADD_SOURCE_MEMBERSHIP)");
+                ff_log_net_error(h, AV_LOG_ERROR, "setsockopt(IP_ADD_SOURCE_MEMBERSHIP)");
             else
-                ff_log_net_error(NULL, AV_LOG_ERROR, "setsockopt(IP_BLOCK_SOURCE)");
+                ff_log_net_error(h, AV_LOG_ERROR, "setsockopt(IP_BLOCK_SOURCE)");
             return ff_neterrno();
         }
     }
@@ -636,7 +637,7 @@ static int udp_open(URLContext *h, const char *uri, int flags)
 
     is_output = !(flags & AVIO_FLAG_READ);
     if (s->buffer_size < 0)
-        s->buffer_size = is_output ? UDP_TX_BUF_SIZE : UDP_MAX_PKT_SIZE;
+        s->buffer_size = is_output ? UDP_TX_BUF_SIZE : UDP_RX_BUF_SIZE;
 
     if (s->sources) {
         if (ff_ip_parse_sources(h, s->sources, &s->filters) < 0)
@@ -797,7 +798,7 @@ static int udp_open(URLContext *h, const char *uri, int flags)
      * receiving UDP packets from other sources aimed at the same UDP
      * port. This fails on windows. This makes sending to the same address
      * using sendto() fail, so only do it if we're opened in read-only mode. */
-    if (s->is_multicast && !(h->flags & AVIO_FLAG_WRITE)) {
+    if (s->is_multicast && (h->flags & AVIO_FLAG_READ)) {
         bind_ret = bind(udp_fd,(struct sockaddr *)&s->dest_addr, len);
     }
     /* bind to the local address if not multicast or if the multicast
@@ -861,7 +862,7 @@ static int udp_open(URLContext *h, const char *uri, int flags)
         } else {
             av_log(h, AV_LOG_DEBUG, "end receive buffer size reported is %d\n", tmp);
             if(tmp < s->buffer_size)
-                av_log(h, AV_LOG_WARNING, "attempted to set receive buffer to size %d but it only ended up set as %d", s->buffer_size, tmp);
+                av_log(h, AV_LOG_WARNING, "attempted to set receive buffer to size %d but it only ended up set as %d\n", s->buffer_size, tmp);
         }
 
         /* make the socket non-blocking */
@@ -978,9 +979,10 @@ static int udp_read(URLContext *h, uint8_t *buf, int size)
                 int64_t t = av_gettime() + 100000;
                 struct timespec tv = { .tv_sec  =  t / 1000000,
                                        .tv_nsec = (t % 1000000) * 1000 };
-                if (pthread_cond_timedwait(&s->cond, &s->mutex, &tv) < 0) {
+                int err = pthread_cond_timedwait(&s->cond, &s->mutex, &tv);
+                if (err) {
                     pthread_mutex_unlock(&s->mutex);
-                    return AVERROR(errno == ETIMEDOUT ? EAGAIN : errno);
+                    return AVERROR(err == ETIMEDOUT ? EAGAIN : err);
                 }
                 nonblock = 1;
             }

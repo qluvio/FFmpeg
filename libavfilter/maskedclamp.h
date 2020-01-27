@@ -1,4 +1,6 @@
-/*
+ /*
+ * Copyright (c) 2019 Paul B Mahol
+ *
  * This file is part of FFmpeg.
  *
  * FFmpeg is free software; you can redistribute it and/or
@@ -16,21 +18,18 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef AVCODEC_OPUSDSP_H
-#define AVCODEC_OPUSDSP_H
+#ifndef AVFILTER_MASKEDCLAMP_H
+#define AVFILTER_MASKEDCLAMP_H
 
-#include "libavutil/common.h"
+#include <stddef.h>
+#include <stdint.h>
 
-#define CELT_EMPH_COEFF 0.8500061035f
+typedef struct MaskedClampDSPContext {
+    void (*maskedclamp)(const uint8_t *bsrc, uint8_t *dst,
+                        const uint8_t *darksrc, const uint8_t *brightsrc,
+                        int w, int undershoot, int overshoot);
+} MaskedClampDSPContext;
 
-typedef struct OpusDSP {
-    void (*postfilter)(float *data, int period, float *gains, int len);
-    float (*deemphasis)(float *out, float *in, float coeff, int len);
-} OpusDSP;
+void ff_maskedclamp_init_x86(MaskedClampDSPContext *dsp, int depth);
 
-void ff_opus_dsp_init(OpusDSP *ctx);
-
-void ff_opus_dsp_init_x86(OpusDSP *ctx);
-void ff_opus_dsp_init_aarch64(OpusDSP *ctx);
-
-#endif /* AVCODEC_OPUSDSP_H */
+#endif /* AVFILTER_MASKEDCLAMP_H */

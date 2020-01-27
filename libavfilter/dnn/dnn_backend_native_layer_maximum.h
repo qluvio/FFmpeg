@@ -1,4 +1,6 @@
 /*
+ * Copyright (c) 2019 Guo Yejun
+ *
  * This file is part of FFmpeg.
  *
  * FFmpeg is free software; you can redistribute it and/or
@@ -16,13 +18,27 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef AVFILTER_SCALE_H
-#define AVFILTER_SCALE_H
+/**
+ * @file
+ * DNN inference functions interface for native backend.
+ */
 
-#include "avfilter.h"
 
-int ff_scale_eval_dimensions(void *ctx,
-    const char *w_expr, const char *h_expr,
-    AVFilterLink *inlink, AVFilterLink *outlink,
-    int *ret_w, int *ret_h);
+#ifndef AVFILTER_DNN_DNN_BACKEND_NATIVE_LAYER_MAXIMUM_H
+#define AVFILTER_DNN_DNN_BACKEND_NATIVE_LAYER_MAXIMUM_H
+
+#include "libavformat/avio.h"
+#include "dnn_backend_native.h"
+
+typedef struct DnnLayerMaximumParams{
+    union {
+        uint32_t u32;
+        float y;
+    }val;
+} DnnLayerMaximumParams;
+
+int dnn_load_layer_maximum(Layer *layer, AVIOContext *model_file_context, int file_size);
+int dnn_execute_layer_maximum(DnnOperand *operands, const int32_t *input_operand_indexes,
+                              int32_t output_operand_index, const void *parameters);
+
 #endif

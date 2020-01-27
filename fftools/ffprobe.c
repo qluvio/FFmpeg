@@ -254,6 +254,7 @@ static const OptionDef *options;
 
 /* FFprobe context */
 static const char *input_filename;
+static const char *print_input_filename;
 static AVInputFormat *iformat = NULL;
 
 static struct AVHashContext *hash;
@@ -1535,7 +1536,7 @@ static void json_print_section_header(WriterContext *wctx)
             if (parent_section && parent_section->id == SECTION_ID_PACKETS_AND_FRAMES) {
                 if (!json->compact)
                     JSON_INDENT();
-                printf("\"type\": \"%s\"%s", section->name, json->item_sep);
+                printf("\"type\": \"%s\"", section->name);
             }
         }
         av_bprint_finalize(&buf, NULL);
@@ -1579,8 +1580,10 @@ static inline void json_print_item_str(WriterContext *wctx,
 static void json_print_str(WriterContext *wctx, const char *key, const char *value)
 {
     JSONContext *json = wctx->priv;
+    const struct section *parent_section = wctx->level ?
+        wctx->section[wctx->level-1] : NULL;
 
-    if (wctx->nb_item[wctx->level])
+    if (wctx->nb_item[wctx->level] || (parent_section && parent_section->id == SECTION_ID_PACKETS_AND_FRAMES))
         printf("%s", json->item_sep);
     if (!json->compact)
         JSON_INDENT();
@@ -1590,9 +1593,11 @@ static void json_print_str(WriterContext *wctx, const char *key, const char *val
 static void json_print_int(WriterContext *wctx, const char *key, long long int value)
 {
     JSONContext *json = wctx->priv;
+    const struct section *parent_section = wctx->level ?
+        wctx->section[wctx->level-1] : NULL;
     AVBPrint buf;
 
-    if (wctx->nb_item[wctx->level])
+    if (wctx->nb_item[wctx->level] || (parent_section && parent_section->id == SECTION_ID_PACKETS_AND_FRAMES))
         printf("%s", json->item_sep);
     if (!json->compact)
         JSON_INDENT();
@@ -2832,7 +2837,8 @@ static void show_error(WriterContext *w, int err)
     writer_print_section_footer(w);
 }
 
-static int open_input_file(InputFile *ifile, const char *filename)
+static int open_input_file(InputFile *ifile, const char *filename,
+                           const char *print_filename)
 {
     int err, i;
     AVFormatContext *fmt_ctx = NULL;
@@ -2853,6 +2859,10 @@ static int open_input_file(InputFile *ifile, const char *filename)
                                    iformat, &format_opts)) < 0) {
         print_error(filename, err);
         return err;
+    }
+    if (print_filename) {
+        av_freep(&fmt_ctx->url);
+        fmt_ctx->url = av_strdup(print_filename);
     }
     ifile->fmt_ctx = fmt_ctx;
     if (scan_all_pmts_set)
@@ -2967,7 +2977,8 @@ static void close_input_file(InputFile *ifile)
     avformat_close_input(&ifile->fmt_ctx);
 }
 
-static int probe_file(WriterContext *wctx, const char *filename)
+static int probe_file(WriterContext *wctx, const char *filename,
+                      const char *print_filename)
 {
     InputFile ifile = { 0 };
     int ret, i;
@@ -2976,7 +2987,7 @@ static int probe_file(WriterContext *wctx, const char *filename)
     do_read_frames = do_show_frames || do_count_frames;
     do_read_packets = do_show_packets || do_count_packets;
 
-    ret = open_input_file(&ifile, filename);
+    ret = open_input_file(&ifile, filename, print_filename);
     if (ret < 0)
         goto end;
 
@@ -3282,6 +3293,12 @@ static int opt_input_file_i(void *optctx, const char *opt, const char *arg)
     return 0;
 }
 
+static int opt_print_filename(void *optctx, const char *opt, const char *arg)
+{
+    print_input_filename = arg;
+    return 0;
+}
+
 void show_help_default(const char *opt, const char *arg)
 {
     av_log_set_callback(log_callback_help);
@@ -3540,6 +3557,7 @@ static const OptionDef real_options[] = {
     { "read_intervals", HAS_ARG, {.func_arg = opt_read_intervals}, "set read intervals", "read_intervals" },
     { "default", HAS_ARG | OPT_AUDIO | OPT_VIDEO | OPT_EXPERT, {.func_arg = opt_default}, "generic catch all option", "" },
     { "i", HAS_ARG, {.func_arg = opt_input_file_i}, "read specified file", "input_file"},
+    { "print_filename", HAS_ARG, {.func_arg = opt_print_filename}, "override the printed input filename", "print_file"},
     { "find_stream_info", OPT_BOOL | OPT_INPUT | OPT_EXPERT, { &find_stream_info },
         "read and decode the streams to fill missing information with heuristics" },
     { NULL, },
@@ -3688,7 +3706,7 @@ int main(int argc, char **argv)
             av_log(NULL, AV_LOG_ERROR, "Use -h to get full help or, even better, run 'man %s'.\n", program_name);
             ret = AVERROR(EINVAL);
         } else if (input_filename) {
-            ret = probe_file(wctx, input_filename);
+            ret = probe_file(wctx, input_filename, print_input_filename);
             if (ret < 0 && do_show_error)
                 show_error(wctx, ret);
         }

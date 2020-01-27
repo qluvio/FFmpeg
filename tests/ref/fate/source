@@ -9,6 +9,10 @@ libavcodec/log2_tab.c
 libavcodec/reverse.c
 libavdevice/file_open.c
 libavdevice/reverse.c
+<<<<<<< HEAD
+=======
+libavfilter/af_arnndn.c
+>>>>>>> 5e62100152f480e62aba7221096da43069bd2d45
 libavfilter/log2_tab.c
 libavformat/file_open.c
 libavformat/golomb_tab.c
