@@ -1409,6 +1409,10 @@ fail:
     if (ret >=0)
         hls->master_m3u8_created = 1;
     hlsenc_io_close(s, &hls->m3u8_out, temp_filename);
+    if (use_temp_file)
+        ff_rename(temp_filename, hls->master_m3u8_url, s);
+
+    return ret;
 }
 
 static int hls_window(AVFormatContext *s, int last, VariantStream *vs)
@@ -2799,7 +2803,6 @@ static int hls_init(AVFormatContext *s)
             ret = format_name(hls->segment_filename, &vs->basename, i, vs->varname);
             if (ret < 0)
                 goto fail;
-            basename_size = strlen(vs->basename) + 1;
         } else {
             if (hls->flags & HLS_SINGLE_FILE) {
                 if (hls->segment_type == SEGMENT_TYPE_FMP4) {

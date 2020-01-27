@@ -371,9 +371,13 @@ static int X264_frame(AVCodecContext *ctx, AVPacket *pkt, const AVFrame *frame,
         if (sd) {
             if (x4->params.rc.i_aq_mode == X264_AQ_NONE) {
                 if (!x4->roi_warned) {
+                    x4->roi_warned = 1;
+                    av_log(ctx, AV_LOG_WARNING, "Adaptive quantization must be enabled to use ROI encoding, skipping ROI.\n");
+                }
             } else {
                 if (frame->interlaced_frame == 0) {
                     int mbx = (frame->width + MB_SIZE - 1) / MB_SIZE;
+                    int mby = (frame->height + MB_SIZE - 1) / MB_SIZE;
                     int qp_range = 51 + 6 * (bit_depth - 8);
                     int nb_rois;
                     const AVRegionOfInterest *roi;

@@ -390,28 +390,6 @@ static int activate(AVFilterContext *ctx)
     return FFERROR_NOT_READY;
 }
 
-static int activate(AVFilterContext *ctx)
-{
-    AVFilterLink *inlink = ctx->inputs[0];
-    AVFilterLink *outlink = ctx->outputs[0];
-    AudioVectorScopeContext *s = ctx->priv;
-    AVFrame *in;
-    int ret;
-
-    FF_FILTER_FORWARD_STATUS_BACK(outlink, inlink);
-
-    ret = ff_inlink_consume_samples(inlink, s->nb_samples, s->nb_samples, &in);
-    if (ret < 0)
-        return ret;
-    if (ret > 0)
-        return filter_frame(inlink, in);
-
-    FF_FILTER_FORWARD_STATUS(inlink, outlink);
-    FF_FILTER_FORWARD_WANTED(outlink, inlink);
-
-    return FFERROR_NOT_READY;
-}
-
 static av_cold void uninit(AVFilterContext *ctx)
 {
     AudioVectorScopeContext *s = ctx->priv;

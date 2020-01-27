@@ -75,9 +75,9 @@ static void picmemset(PicContext *s, AVFrame *frame, unsigned value, int run,
         for (j = 8-bits_per_plane; j >= 0; j -= bits_per_plane) {
             d[xl] |= (value >> j) & mask;
             xl += 1;
-            if (xl == s->width) {
+            while (xl == s->width) {
                 yl -= 1;
-                xl = 0
+                xl = 0;
                 if (yl < 0) {
                    yl = s->height - 1;
                    planel += 1;
@@ -86,6 +86,7 @@ static void picmemset(PicContext *s, AVFrame *frame, unsigned value, int run,
                    value <<= bits_per_plane;
                    mask  <<= bits_per_plane;
                 }
+                d = frame->data[0] + yl * frame->linesize[0];
                 if (s->nb_planes == 1 &&
                     run*pixels_per_value >= s->width &&
                     pixels_per_value < s->width &&

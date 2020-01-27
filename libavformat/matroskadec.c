@@ -3003,7 +3003,11 @@ static int matroska_parse_laces(MatroskaDemuxContext *matroska, uint8_t **buf,
         uint32_t total = 0;
         for (n = 0; n < *laces - 1; n++) {
             lace_size[n] = 0;
+
+            while (1) {
+                if (size <= total) {
                     return AVERROR_INVALIDDATA;
+                }
                 temp          = *data;
                 total        += temp;
                 lace_size[n] += temp;

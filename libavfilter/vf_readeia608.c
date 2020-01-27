@@ -310,7 +310,6 @@ static void extract_line(AVFilterContext *ctx, AVFrame *in, int w, int nb_line)
     find_black_and_white(s);
     if (s->white - s->black < 5)
         return;
-    }
 
     thresholding(s, line, LAG, 1, 0, w);
     len = periods(line, s->code, w);
