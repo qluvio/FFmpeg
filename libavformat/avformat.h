@@ -1940,6 +1940,9 @@ typedef struct AVFormatContext {
      */
     int max_streams;
 
+    /* Special for avpipe, holds out_handler */
+    void *avpipe_opaque;
+
     /**
      * Skip duration calcuation in estimate_timings_from_pts.
      * - encoding: unused

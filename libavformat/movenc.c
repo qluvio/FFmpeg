@@ -2568,8 +2568,8 @@ static int mov_write_stbl_tag(AVFormatContext *s, AVIOContext *pb, MOVMuxContext
     mov_write_stsc_tag(pb, track);
     mov_write_stsz_tag(pb, track);
     mov_write_stco_tag(pb, track);
-    if (track->cenc.aes_ctr) {
-        ff_mov_cenc_write_stbl_atoms(&track->cenc, pb);
+    if (track->cenc.aes_ctr && !(mov->flags & FF_MOV_FLAG_FRAGMENT)) {
+        ff_mov_cenc_write_stbl_atoms(&track->cenc, pb, 0);
     }
     if (track->par->codec_id == AV_CODEC_ID_OPUS || track->par->codec_id == AV_CODEC_ID_AAC) {
         mov_preroll_write_stbl_atoms(pb, track);
@@ -3347,6 +3347,9 @@ static int mov_write_mvhd_tag(AVIOContext *pb, MOVMuxContext *mov)
     int version;
 
     for (i = 0; i < mov->nb_streams; i++) {
+        // Can do this if timescale 1000 (MOV_TIMESCALE) causes any problems -PT
+        // if (mov->tracks[i].timescale)
+        //     timescale = mov->tracks[i].timescale;
         if (mov->tracks[i].entry > 0 && mov->tracks[i].timescale) {
             int64_t max_track_len_temp = av_rescale_rnd(
                                                 calc_pts_duration(mov, &mov->tracks[i]),
@@ -4567,6 +4570,10 @@ static int mov_write_traf_tag(AVIOContext *pb, MOVMuxContext *mov,
         }
     }
 
+    if (track->cenc.aes_ctr) {
+        ff_mov_cenc_write_stbl_atoms(&track->cenc, pb, moof_offset);
+    }
+
     return update_size(pb, pos);
 }
 
@@ -4931,6 +4938,7 @@ static int mov_write_ftyp_tag(AVIOContext *pb, AVFormatContext *s)
     if (mov->mode == MODE_MP4)
         ffio_wfourcc(pb, "mp41");
 
+    // Comment out FF_MOV_FLAG_GLOBAL_SIDX to add dash to ftyp -PT
     if (mov->flags & FF_MOV_FLAG_DASH && mov->flags & FF_MOV_FLAG_GLOBAL_SIDX)
         ffio_wfourcc(pb, "dash");
 
@@ -5363,6 +5371,8 @@ static int mov_flush_fragment(AVFormatContext *s, int force)
 
         avio_write(s->pb, buf, buf_size);
         av_free(buf);
+
+        ff_mov_cenc_reset_aux(&track->cenc);
     }
 
     mov->mdat_size = 0;
@@ -6343,6 +6353,15 @@ static int mov_init(AVFormatContext *s)
         return AVERROR(EINVAL);
     }
 
+    /* Call io_open call back if pb is NULL (output format is "mp4", and using mp4 muxer) */
+    if (!s->pb && s->io_open) {
+        AVDictionary *opts = NULL;
+        ret = s->io_open(s, &s->pb, s->url, AVIO_FLAG_WRITE, &opts);
+        av_dict_free(&opts);
+        if (ret < 0)
+            return ret;
+    }
+
     /* Non-seekable output is ok if using fragmentation. If ism_lookahead
      * is enabled, we don't support non-seekable output at all. */
     if (!(s->pb->seekable & AVIO_SEEKABLE_NORMAL) &&
@@ -6398,22 +6417,20 @@ static int mov_init(AVFormatContext *s)
         return AVERROR(ENOMEM);
 
     if (mov->encryption_scheme_str != NULL && strcmp(mov->encryption_scheme_str, "none") != 0) {
-        if (strcmp(mov->encryption_scheme_str, "cenc-aes-ctr") == 0) {
-            mov->encryption_scheme = MOV_ENC_CENC_AES_CTR;
-
+        if (strcmp(mov->encryption_scheme_str, "cenc") == 0) {
+            mov->encryption_scheme = MOV_ENC_CENC;
             if (mov->encryption_key_len != AES_CTR_KEY_SIZE) {
                 av_log(s, AV_LOG_ERROR, "Invalid encryption key len %d expected %d\n",
                     mov->encryption_key_len, AES_CTR_KEY_SIZE);
                 return AVERROR(EINVAL);
             }
-
             if (mov->encryption_kid_len != CENC_KID_SIZE) {
                 av_log(s, AV_LOG_ERROR, "Invalid encryption kid len %d expected %d\n",
                     mov->encryption_kid_len, CENC_KID_SIZE);
                 return AVERROR(EINVAL);
             }
         } else {
-            av_log(s, AV_LOG_ERROR, "unsupported encryption scheme %s\n",
+            av_log(s, AV_LOG_ERROR, "Unsupported encryption scheme %s\n",
                 mov->encryption_scheme_str);
             return AVERROR(EINVAL);
         }
@@ -6567,7 +6584,7 @@ static int mov_init(AVFormatContext *s)
 
         avpriv_set_pts_info(st, 64, 1, track->timescale);
 
-        if (mov->encryption_scheme == MOV_ENC_CENC_AES_CTR) {
+        if (mov->encryption_scheme == MOV_ENC_CENC) {
             ret = ff_mov_cenc_init(&track->cenc, mov->encryption_key,
                 track->par->codec_id == AV_CODEC_ID_H264, s->flags & AVFMT_FLAG_BITEXACT);
             if (ret)
