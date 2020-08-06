@@ -2078,6 +2078,7 @@ static int dash_write_packet(AVFormatContext *s, AVPacket *pkt)
             os->start_pts = os->max_pts;
         else
 #endif
+            av_log(s, AV_LOG_INFO, "SETTING START_PTS pkt->pts=%"PRId64", max_pts=%"PRId64, pkt->pts, os->max_pts);
             os->start_pts = pkt->pts;
     }
     if (os->max_pts == AV_NOPTS_VALUE)
