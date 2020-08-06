@@ -2068,9 +2068,16 @@ static int dash_write_packet(AVFormatContext *s, AVPacket *pkt)
         // If we wrote a previous segment, adjust the start time of the segment
         // to the end of the previous one (which is the same as the mp4 muxer
         // does). This avoids gaps in the timeline.
+#if 0
+        /*
+         * Initializing start_pts with max_pts can cause some problem in very odd cases (RM).
+         * For example with fry's video transcoding max_pts starts to drift 1001 ts after second segment.
+         * The following change set forces start_pts of the segment to be pkt->pts of the first packet in the segment.
+         */
         if (os->max_pts != AV_NOPTS_VALUE)
             os->start_pts = os->max_pts;
         else
+#endif
             os->start_pts = pkt->pts;
     }
     if (os->max_pts == AV_NOPTS_VALUE)
